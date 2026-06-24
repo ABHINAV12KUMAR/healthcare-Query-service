@@ -1,3 +1,4 @@
+```groovy
 pipeline {
     agent any
 
@@ -45,6 +46,38 @@ pipeline {
             }
         }
 
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    if (fileExists('pom.xml')) {
+                        withSonarQubeEnv('SonarQube') {
+                            bat '''
+                                mvn sonar:sonar ^
+                                -Dsonar.projectKey=healthcare-query-service ^
+                                -Dsonar.projectName=healthcare-query-service ^
+                                -Dsonar.host.url=%SONAR_HOST_URL% ^
+                                -Dsonar.login=%SONAR_AUTH_TOKEN%
+                            '''
+                        }
+                    } else if (fileExists('query/pom.xml')) {
+                        dir('query') {
+                            withSonarQubeEnv('SonarQube') {
+                                bat '''
+                                    mvn sonar:sonar ^
+                                    -Dsonar.projectKey=healthcare-query-service ^
+                                    -Dsonar.projectName=healthcare-query-service ^
+                                    -Dsonar.host.url=%SONAR_HOST_URL% ^
+                                    -Dsonar.login=%SONAR_AUTH_TOKEN%
+                                '''
+                            }
+                        }
+                    } else {
+                        error 'pom.xml not found in root or query folder'
+                    }
+                }
+            }
+        }
+
         stage('Archive Artifact') {
             steps {
                 archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
@@ -54,11 +87,12 @@ pipeline {
 
     post {
         success {
-            echo 'Query service CI pipeline completed successfully.'
+            echo 'Query service CI + SonarQube pipeline completed successfully.'
         }
 
         failure {
-            echo 'Query service CI pipeline failed. Check console logs.'
+            echo 'Query service CI + SonarQube pipeline failed. Check console logs.'
         }
     }
 }
+```
